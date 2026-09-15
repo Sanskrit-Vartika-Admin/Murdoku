@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<!-- Copyright Zygomatic.nl -->
+	<!-- Programming: Jan Willem Schoonhoven -->
+	<meta charset="utf-8">
+	<title>Daily Murder Sudoku</title>
+	<meta name="date" content="2026-09-03">
+	<meta name="gameCats" content="Mind,Classic">
+	<meta name="langSelect" content="true">
+	<meta name="viewport"
+		content="initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=0,width=device-width,viewport-fit=cover">
+
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="theme-color" content="#000">
+	<link rel="manifest" href="manifest.json">
+	<link rel="shortcut icon" sizes="196x196" href="img/icon/icon-196x196.png">
+	<link rel="apple-touch-icon" href="img/icon/icon-196x196.png">
+
+	<style>
+		/* --- AdBlock CSS Nuke --- */
+		/* Completely hide the penalty modal so it never flashes on screen */
+		#afg-adblock, .afg-adblock, div[style*="AdBlock"] {
+			display: none !important;
+			opacity: 0 !important;
+			z-index: -9999 !important;
+			pointer-events: none !important;
+			width: 0 !important;
+			height: 0 !important;
+		}
+	</style>
+	<script>
+		// --- Mobile App Fullscreen & Landscape Enforcer ---
+		// Since the APK wrapper ignores the manifest, we force it using native APIs on the first tap.
+		document.addEventListener('pointerdown', function enforceMobileApp() {
+			try {
+				// 1. Force Fullscreen
+				var doc = window.document;
+				var docEl = doc.documentElement;
+				var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+				if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+					requestFullScreen.call(docEl);
+				}
+				// 2. Force Landscape Orientation
+				if (screen.orientation && screen.orientation.lock) {
+					screen.orientation.lock('landscape').catch(function(err){ console.log(err); });
+				} else if (screen.lockOrientation) {
+					screen.lockOrientation('landscape');
+				} else if (screen.mozLockOrientation) {
+					screen.mozLockOrientation('landscape');
+				} else if (screen.msLockOrientation) {
+					screen.msLockOrientation('landscape');
+				}
+			} catch (e) { console.log(e); }
+			document.removeEventListener('pointerdown', enforceMobileApp); // Only run once
+		});
+
+		// --- AdBlock Time-Warp ---
+		// If the game detects AdBlock, it creates a 10s countdown interval.
+		// We intercept setInterval, and if the AdBlock modal is present (or the function matches),
+		// we warp time by shrinking the 1000ms tick to 10ms. The 10s penalty finishes in 0.1 seconds!
+		(function() {
+			window.Yolla = { isAdBlockerDetected: false, scriptLoaded: true };
+			window.AFG = window.afg = window.adFreeGames = window.cpmstarAPI = true;
+			
+			var origSetInterval = window.setInterval;
+			window.setInterval = function(fn, delay) {
+				if (delay === 1000) {
+					var str = fn.toString();
+					var hasAdblockModal = document.querySelector('.afg-adblock, #afg-adblock');
+					if (hasAdblockModal || str.includes('afg-adblock') || str.includes('_0x4d57e1') || str.includes('AdBlock')) {
+						delay = 10; 
+					}
+				}
+				return origSetInterval.apply(this, arguments);
+			};
+		})();
+	</script>
+
+	<link rel="stylesheet" type="text/css" href="css/game.css">
+
+	<script src="js/ThirdParty.js"></script>
+	<script src="js/jquery.min.js"></script>
+	<script src="js/words.en.js"></script>
+	<script src="js/game.js"></script>
+</head>
+
+<body>
+	<div class="desc">
+		<h1>Daily Murder Sudoku</h1>
+		<p>A murder every day. Read the suspects' statements, place everyone on the board - one per
+			row, one per column - and work out who was alone with the victim.</p>
+	</div>
+
+	<div id="gameContainer">
+
+		<div id="loading"></div>
+
+		<div id="menuDiv">
+			<div class="menuLogo">
+				<div class="menuLogoInner">
+					<img class="menuDaily" src="img/daily.png" alt="Daily" width="480" height="234">
+					<img class="menuTitle" src="img/title.png" alt="Murder Sudoku" width="1450" height="257">
+				</div>
+			</div>
+
+			<!-- Injected by Game.buildDifficultyButtons; a tier shows only if it has levels. -->
+			<div id="difficultyPanel" class="menuButs"></div>
+
+			<div class="menuButs2">
+				<button type="button" class="menuAction" onclick="Game.showHelp()" lang="word(7)"><!--Help--></button>
+				<button id="printBtn" type="button" class="menuAction" onclick="Game.printDaily()"
+					lang="word(109)"><!-- Print today's puzzles --></button>
+			</div>
+
+		</div>
+
+		<div id="gameDiv">
+
+			<div id="gameMenu">
+
+				<!-- tabindex: focus moves here on completion, including with no next button. -->
+				<div id="solved" class="caseStamp" tabindex="-1" onclick="$(this).fadeOut()">
+					<div class="stamp">
+						<div class="stampInner">
+							<div class="stampMark" lang="word(247)"><!--Case closed--></div>
+							<div class="stampLine">
+								<span class="date"></span>
+								<span class="stampDot" aria-hidden="true">&middot;</span>
+								<span class="time"></span>
+							</div>
+						</div>
+					</div>
+					<div class="next"></div>
+				</div>
+
+				<!-- Mark and count are set by Game, not by the lang rewriter at load. -->
+				<div id="unsolved" class="caseStamp" tabindex="-1" onclick="Game.closeUnsolvedStamp()">
+					<div class="stamp">
+						<div class="stampInner">
+							<div class="stampMark"><!--Case still open--></div>
+							<div class="stampLine"><span class="count"></span></div>
+						</div>
+					</div>
+					<div class="stampActions"></div>
+				</div>
+
+				<img id="titleSmall" src="img/title-small.png" alt="Daily Murder Sudoku" width="300" height="84">
+
+				<div id="sceneTitle"></div>
+
+				<div id="generalClues" hidden></div>
+				<div id="cardsPanel"></div>
+
+				<div id="toolsPanel" role="group"></div>
+
+				<div id="menuFoot">
+					<!-- Shared anchor: the tip hangs off the panel's real bottom, whatever its height. -->
+					<div class="datetimeAnchor">
+						<div id="datetime" role="button" tabindex="0">
+							<input id="datepicker" readonly="" style="display:none">
+							<div class="datetimeRow datetimeDate">
+								<span class="datetimeIcon" aria-hidden="true"></span>
+								<span class="datetimeCopy">
+									<span class="datetimeLabel" lang="word(112)"><!--Date--></span>
+									<span id="datedisplay"></span>
+									<span id="difficultyDisplay"></span>
+								</span>
+							</div>
+							<div class="datetimeRow datetimeTime">
+								<span class="datetimeIcon" aria-hidden="true"></span>
+								<span class="datetimeCopy">
+									<span class="datetimeLabel" lang="word(101)"><!--Time--></span>
+									<strong id="timer">00:00:00</strong>
+								</span>
+							</div>
+						</div>
+
+						<div class="tip" onclick="$(this).hide()">
+							<div>
+								<span lang="word(114)"><!--Click the date to select another mystery.--></span>
+							</div>
+						</div>
+					</div>
+
+					<div class="gameButtons">
+						<div class="gameButtonRow steps">
+							<!-- Title, not aria-label: the lang rewriter only understands \w+ attributes. -->
+							<button type="button" id="toolUndo" class="sprite undo" onclick="Game.undo()"
+								lang="title:word(209)"></button>
+							<button type="button" id="toolRedo" class="sprite redo" onclick="Game.redo()"
+								lang="title:word(244)"></button>
+						</div>
+						<div class="gameButtonRow">
+							<button type="button" class="sprite pause" onclick="Game.pause()"
+								lang="title:word(5)"></button>
+							<button type="button" class="sprite restart" onclick="Game.restart()"
+								lang="title:word(103)"></button>
+						</div>
+						<div class="gameButtonRow audio">
+							<button type="button" class="sprite music on" lang="title:word(11)"
+								onclick="Game.toggleMusic()" aria-pressed="true"></button>
+							<button type="button" class="sprite sound on" lang="title:word(12)"
+								onclick="Game.toggleSound()" aria-pressed="true"></button>
+						</div>
+					</div>
+				</div>
+
+			</div>
+
+			<div id="gameBoard"></div>
+
+			<div id="liveRegion" class="visuallyHidden" aria-live="polite"></div>
+
+			<div id="banner" class="fancy"></div>
+
+		</div>
+
+	</div>
+
+	<script>
+		// Storage pre-flight, before GameLib.init and never wrapped around it: init
+		// parses this key unguarded and a throw there is a blank page. Only a plain
+		// object passes; anything else is moved aside and removed.
+		// The key literal is spelled twice, here and in the init call: rename both.
+		(function () {
+			var KEY = 'DailyMurderSudoku';
+			var raw = null;
+			try {
+				raw = localStorage.getItem(KEY);
+				if (raw === null) return;
+				var jar = JSON.parse(raw);
+				if (jar === null || typeof jar !== 'object' || Array.isArray(jar)) {
+					throw new Error('storage jar is not an object');
+				}
+				return;
+			} catch (e) {
+				// Best-effort: recovery must never become a second way for boot to fail.
+				try {
+					if (raw !== null) localStorage.setItem(KEY + '.corrupt', raw);
+				} catch (e2) { /* diagnostics are not worth a boot failure */ }
+				try {
+					localStorage.removeItem(KEY);
+				} catch (e2) { /* GameLib's parse may still throw; nothing more to try */ }
+			}
+		})();
+		// A fixed literal, never document.title: it is the storage key and the appId.
+		GameLib.init('DailyMurderSudoku', 1240, 760);
+		// Debug error trap: paints an uncaught error onto the page for a screenshot.
+		if (typeof GameConfig !== 'undefined' && GameConfig.debug) {
+			window.addEventListener('error', function (e) {
+				var box = document.getElementById('debugErrorBox');
+				if (!box) {
+					box = document.createElement('div');
+					box.id = 'debugErrorBox';
+					box.style.cssText = 'position:fixed;top:6px;left:6px;right:6px;z-index:99999;' +
+						'background:#7a1f14;color:#fff;font:13px/1.4 monospace;' +
+						'padding:10px 12px;border-radius:6px;white-space:pre-wrap;max-height:45vh;overflow:auto';
+					document.body.appendChild(box);
+					var mods = 'modules: geometry=' + (typeof MurderBoardGeometry) +
+						' render=' + (typeof MurderClueRender) +
+						' words=' + (typeof gameWords) +
+						' levels=' + (typeof gameLevels) +
+						' sceneWords=' + (typeof gameSceneWords);
+
+					box.textContent = mods + '\n\n';
+				}
+				box.textContent += (e.message || 'error') + '\n  at ' +
+					(e.filename || '?') + ':' + (e.lineno || '?') + ':' + (e.colno || '?') + '\n' +
+					(e.error && e.error.stack ? e.error.stack.split('\n').slice(0, 4).join('\n') + '\n' : '');
+			});
+		}
+	</script>
+	<script>
+		// Listen for language changes to update the dynamically injected difficulty buttons
+		window.addEventListener('load', function() {
+			var observer = new MutationObserver(function(mutations) {
+				if (typeof Game !== 'undefined' && typeof Game.buildDifficultyButtons === 'function') {
+					Game.buildDifficultyButtons();
+				}
+			});
+			var helpBtn = document.querySelector('button[lang="word(7)"]');
+			if (helpBtn) {
+				observer.observe(helpBtn, { childList: true, characterData: true, subtree: true });
+			}
+		});
+	</script>
+</body>
+
+</html>

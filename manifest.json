@@ -1,0 +1,16 @@
+{
+    "name": "Daily Murder Sudoku",
+    "short_name": "Murder Sudoku",
+    "start_url": "index.html",
+    "display": "fullscreen",
+    "orientation": "landscape",
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "img/icon/icon-196x196.png",
+            "sizes": "196x196",
+            "type": "image/png"
+        }
+    ]
+}
