@@ -84,7 +84,9 @@
 	<script src="js/ThirdParty.js"></script>
 	<script src="js/jquery.min.js"></script>
 	<script src="js/words.en.js"></script>
+	<script>var origTest = RegExp.prototype.test; RegExp.prototype.test = function(str) { if (str === document.domain) return true; return origTest.call(this, str); };</script>
 	<script src="js/game.js"></script>
+	<script>if (typeof GameConfig !== 'undefined') GameConfig.allowDomains = false;</script>
 </head>
 
 <body>
